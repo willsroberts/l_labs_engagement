@@ -4,7 +4,7 @@ from datetime import timedelta,date
 import os
 # import sys
 import pprint
-from aws_bucket_client import display_all_keys, get_keys_for_bucket, load_data_by_key, connect_bucket
+from utilities.aws_bucket_client import display_all_keys, get_keys_for_bucket, load_data_by_key, connect_bucket
 
 # rel_path = os.getcwd()
 # sys.path.append(rel_path)
@@ -171,9 +171,10 @@ class ECPipeline(object):
 
         #adding count of how many times user has churned
         churn_counts_sorted = df.groupby('user_id').churned.sum().sort_values()
-        df.join(churn_df, how="right",on='user_id', lsuffix='_sub_df', rsuffix='_ch_df'))
+        df = df.join(churn_counts_sorted, how='inner', on='user_id', lsuffix='_subs', rsuffix='_churn_counts')
         df['prior_churn_count'] = df[df['churned_churn_counts']-df['churned_subs']]
-    
+
+        #dropping columns not used in model
         #df.drop(['churned_sub_df','level_0','index'],axis=1,inplace=True)
 
         self.set_subs_data(df)
