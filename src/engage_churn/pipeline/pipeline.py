@@ -90,10 +90,12 @@ class ECPipeline(object):
         df = df.rename(columns={'m':'is_male'})
         #No known individuals above age 117, so filtering those records
         df = df[df['age'] < 117]
-        #Feels unreasonable for age <5 for players
+        #Unreasonable for age <5 for players
         df = df[df['age'] > 4]
-        df.drop(['f'])
 
+        df.drop(['f','gender'],axis=1,inplace=True)
+
+        print df.describe()[['age','is_male']]
         self.set_demo_data(demo_df=df)
         return "LOGGING (FIX): DEMO DATA SET, SUCCESSFULLY"
 
