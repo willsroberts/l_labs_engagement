@@ -33,7 +33,6 @@ def load_data_by_key(key=None, bucket=None, bucket_keys=None, H=False):
         print load_data_by_key.__doc__
     if key in bucket_keys.keys():
         df = pd.DataFrame.from_csv(bucket.get_key(bucket_keys[str(key)]))
-        # df = _get_df_from_key(bucket=bucket,bucket_keys=bucket_keys,key=str(key))
         df.reset_index(inplace=True)
     else:
         print "ERROR <= Update Logging => NULL, KEY"
