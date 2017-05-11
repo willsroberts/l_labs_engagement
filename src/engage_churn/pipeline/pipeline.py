@@ -155,6 +155,7 @@ class ECPipeline(object):
                                 bucket=self.get_s3_bucket(),
                                 bucket_keys=self.get_aws_keys())
         df.reset_index(inplace=True)
+
         df['date'] = pd.to_datetime(df['date'])
         #Calculate the difference between every login by user from days of last login
         df['day_gap'] = df.groupby('user_id').date.diff()
@@ -172,7 +173,7 @@ class ECPipeline(object):
         #adding count of how many times user has churned
         churn_counts_sorted = df.groupby('user_id').churned.sum().sort_values()
         df = df.join(churn_counts_sorted, how='inner', on='user_id', lsuffix='_subs', rsuffix='_churn_counts')
-        df['prior_churn_count'] = df[df['churned_churn_counts']-df['churned_subs']]
+        df['prior_churn_count'] = df['churned_churn_counts']-df['churned_subs']
 
         #dropping columns not used in model
         #df.drop(['churned_sub_df','level_0','index'],axis=1,inplace=True)
