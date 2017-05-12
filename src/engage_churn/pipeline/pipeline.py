@@ -111,7 +111,7 @@ class ECPipeline(object):
                                 bucket_keys=self.get_aws_keys())
         df.reset_index(inplace=True)
 
-        if limit_records:
+        if row_limit:
             df = df.head(row_limit)
 
         df['date'] = pd.to_datetime(df.date)
@@ -146,7 +146,7 @@ class ECPipeline(object):
                                 bucket_keys=self.get_aws_keys())
         df.reset_index(inplace=True)
 
-        if limit_records:
+        if row_limit:
             df = df.head(row_limit)
 
         #Filtering out records with weeks of year into the future
