@@ -215,9 +215,8 @@ class ECPipeline(object):
         self.set_subs_data(df)
         return "LOGGING(FIX): SUB DATA SET SUCCESSFULLY"
 
-        def get_data_matrix(self):
-            return self.get_subs_data().join(self.get_gid_data(), how='inner', on='user_id', lsuffix='_subs_df', rsuffix='_gmid_df')
-
+    def get_data_matrix(self):
+        return self.get_subs_data().join(self.get_gid_data(), how='inner', on='user_id', lsuffix='_subs_df', rsuffix='_gmid_df')
 
 
     def preprocess_all_datasets(self, row_limit=None):
