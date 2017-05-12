@@ -80,11 +80,14 @@ class ECPipeline(object):
 
 #####################################################
 
-    def preprocess_demo_df(self):
+    def preprocess_demo_df(self, row_limit):
         df = load_data_by_key(key='demo_key',
                               bucket=self.get_s3_bucket(),
                               bucket_keys=self.get_aws_keys())
         df.reset_index(inplace=True)
+
+        if row_limit:
+            df = df.head(row_limit)
 
         #dummify gender
         df_sex = pd.get_dummies(df.gender)
@@ -102,11 +105,14 @@ class ECPipeline(object):
         self.set_demo_data(demo_df=df)
         return "LOGGING (FIX): DEMO DATA SET, SUCCESSFULLY"
 
-    def preprocess_game_id_data(self):
+    def preprocess_game_id_data(self, row_limit=None):
         df = load_data_by_key(key='game_id_key',
                                 bucket=self.get_s3_bucket(),
                                 bucket_keys=self.get_aws_keys())
         df.reset_index(inplace=True)
+
+        if limit_records:
+            df = df.head(row_limit)
 
         df['date'] = pd.to_datetime(df.date)
         #Create Column for unique number of games played
@@ -132,12 +138,15 @@ class ECPipeline(object):
         self.set_gid_data(gid_df=df)
         return "LOGGING(FIX): GAME ID DATA SET SUCCESSFULLY"
 
-    def preprocess_game_variety_data(self):
+    def preprocess_game_variety_data(self, row_limit=None):
         #if self.get_game_variety_data not none, prompt to make sure
         df = load_data_by_key(key='game_var_key',
                                 bucket=self.get_s3_bucket(),
                                 bucket_keys=self.get_aws_keys())
         df.reset_index(inplace=True)
+
+        if limit_records:
+            df = df.head(row_limit)
 
         #Filtering out records with weeks of year into the future
         df = df[df['weekOfYear']< self._get_todays_week_no() + 1]
@@ -157,30 +166,26 @@ class ECPipeline(object):
         self.set_gv_data(gv_df=df)
         return "LOGGING(FIX): GAME VAR DATA SET SUCCESSFULLY"
 
-    def preprocess_subs_data(self):
+    def preprocess_subs_data(self, row_limit=None):
         df = load_data_by_key(key='subs_key',
                                 bucket=self.get_s3_bucket(),
                                 bucket_keys=self.get_aws_keys())
         df.reset_index(inplace=True)
 
-        df = df.head(100000)
+        if row_limit:
+            df = df.head(row_limit)
 
         df['date'] = pd.to_datetime(df['date'])
-        #Calculate the difference between every login by user from days of last login
-        df['day_gap'] = df.groupby('user_id').date.diff()
-        df['day_gap'] = df.day_gap.dt.days
-
-        # print df.head()
         #dummifying subcription data
         account_status = pd.get_dummies(df.state)
         pd.concat([df,account_status],axis=1)
         df.rename(columns={'subs':'is_subs_acct'})
-        # print df.head()
 
 
-
+        #Calculate the difference between every login by user from days of last login
+        df['day_gap'] = df.groupby('user_id').date.diff()
+        df['day_gap'] = df.day_gap.dt.days
         #creating churned user records
-        #
         df['churned'] = df['day_gap'].apply(lambda x: 1 if x > self.get_churn_threshold() else 0)
         churn_df = df.groupby('user_id')['churned'].max()
         df.join(churn_df, how="inner",on='user_id', lsuffix='_sub_df', rsuffix='_ch_df')
@@ -200,7 +205,7 @@ class ECPipeline(object):
 
         df.dropna(inplace=True)
 
-        df.drop(['churned_churn_counts','index','dup_row','state','date'],axis=1,inplace=True)
+        df.drop(['churned_churn_counts','index','dup_row','state','date','day_gap'],axis=1,inplace=True)
         df.rename(columns={'churned_subs':'churned'}, inplace=True)
 
         #dropping columns not used in model
@@ -209,10 +214,10 @@ class ECPipeline(object):
         self.set_subs_data(df)
         return "LOGGING(FIX): SUB DATA SET SUCCESSFULLY"
 
-    def preprocess_all_datasets(self):
-        # self.preprocess_demo_df()
-        # self.preprocess_game_id_data()
-        # self.preprocess_game_variety_data()
+    def preprocess_all_datasets(self, row_limit=None):
+        # self.preprocess_demo_df(row_limit=row_limit)
+        # self.preprocess_game_id_data(row_limit=row_limit)
+        # self.preprocess_game_variety_data(row_limit=row_limit)
         self.preprocess_subs_data()
         return "LOGGING(FIX): PREPROCESSED SUCCESSFULLY"
 

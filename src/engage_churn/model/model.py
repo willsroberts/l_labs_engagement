@@ -86,38 +86,49 @@ class EngagementModel(object):
         self.set_optimal_model(models[0])
         return "LOGGING (FIX): OPTIMAL MODEL SET, SUCCESSFULLY"
 
+    def logistic_regression_report(X_train,y_train,X_test,y_test):
+        model = LogisticRegression()
+        model.fit(X_train, y_train)
+        y_predict = model.predict(X_test)
+
+        print model.coef_
+        print "Model Score: {} , Precision Score: {}, Recall Score: {}".format(model.score(X_test, y_test),
+               precision_score(y_test, y_predict),
+               recall_score(y_test, y_predict))
+
+
 if __name__ == '__main__':
+    #Instantiate the data pipeline and preprocess_all_datasets
+    #Option to limit sample size you're running on
     pipeline = ECPipeline()
     pipeline.set_s3_bucket(connect_bucket())
     pipeline.set_aws_keys(get_keys_for_bucket())
+    pipeline.preprocess_all_datasets(row_limit=100000)
 
-    pipeline.preprocess_all_datasets()
-
+    #Returns matrix to run predictions from in pipeline
     df = pipeline.get_data_matrix()
-    print df.head()
 
+    #Instantiate Model
     model = EngagementModel()
     model.set_labels(labels=df.pop('churned').values)
     model.set_x_matrix(x_mat=df.values)
 
+    #Create Test-Train Split - coercing a 20% label presence in sample
     X_train, X_test, y_train, y_test = train_test_split(model.get_x_matrix(),
             model.get_labels(), test_size=0.20, random_state=42)
 
-    model = LogisticRegression ()
-    model.fit(X_train, y_train)
-    y_predict = model.predict(X_test)
+    #Trains models on test split
+    model.fit_grid_search( X_train, y_train )
 
-    print model.coef_
-    print "Model Score: {} , Precision Score: {}, Recall Score: {}".format(model.score(X_test, y_test),
-           precision_score(y_test, y_predict),
-           recall_score(y_test, y_predict))
+    #Print summary statistics from train
+    model.report_model_results()
 
-    # model.fit_grid_search( X_train, y_train )
-    #
-    # model.report_model_results()
-    #
-    # all_models = [g.best_estimator_ for g in model.get_gs_results()]
-    #
-    # model.predict_and_score(all_models, X_test, y_test)
-    #
-    # model.predict_and_score()
+    all_models = [g.best_estimator_ for g in model.get_gs_results()]
+
+    model.predict_and_score(all_models, X_test, y_test)
+
+    '''
+    [[ -7.72642022e-04  -9.33500647e-04   3.56949206e-04  -1.65679874e-04
+   -1.90501419e-03   2.89065101e-01   0.00000000e+00]]
+    Model Score: 0.977443609023 , Precision Score: 0.91847826087, Recall Score: 1.0
+    '''
