@@ -137,7 +137,7 @@ class ECPipeline(object):
                      'gameId_ugpdf':'all_user_games_plyd',
                      'userId':'user_id'})
 
-        df.drop(['hour_gid', 'date', 'gameId_gid', 'hour_ugdf', 'gameId_ugpdf'],axis=1,inplace=True)
+        df.drop(['hour_gid', 'date', 'gameId_gid', 'hour_ugdf', 'gameId_ugpdf','index'],axis=1,inplace=True)
 
         #Setting dateframe on pipeline object
         self.set_gid_data(gid_df=df)
