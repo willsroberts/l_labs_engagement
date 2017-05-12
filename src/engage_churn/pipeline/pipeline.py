@@ -132,7 +132,8 @@ class ECPipeline(object):
         df.rename(columns={'hour_gid':'session_hours',
                      'gameId_gid':'session_gameIds',
                      'hour_ugdf':'all_user_gaming_hours',
-                     'gameId_ugpdf':'all_user_games_plyd'})
+                     'gameId_ugpdf':'all_user_games_plyd',
+                     'userId':'user_id'})
 
         #Setting dateframe on pipeline object
         self.set_gid_data(gid_df=df)
@@ -214,18 +215,23 @@ class ECPipeline(object):
         self.set_subs_data(df)
         return "LOGGING(FIX): SUB DATA SET SUCCESSFULLY"
 
+        def get_data_matrix(self):
+            return self.get_subs_data().join(
+                        self.get_gid_data(), how='inner', on='user_id', lsuffix='_subs_df', rsuffix='_gmid_df'
+
+
+
     def preprocess_all_datasets(self, row_limit=None):
         # self.preprocess_demo_df(row_limit=row_limit)
-        # self.preprocess_game_id_data(row_limit=row_limit)
+        self.preprocess_game_id_data(row_limit=row_limit)
         # self.preprocess_game_variety_data(row_limit=row_limit)
-        self.preprocess_subs_data()
+        self.preprocess_subs_data(row_limit=row_limit)
         return "LOGGING(FIX): PREPROCESSED SUCCESSFULLY"
 
     def _get_todays_week_no(self):
         return date.today().isocalendar()[1]
 
-    def get_data_matrix(self):
-        return self.get_subs_data()
+
 
 if __name__ == "__main__":
     bucket = connect_bucket()
