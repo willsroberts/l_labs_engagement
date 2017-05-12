@@ -129,7 +129,7 @@ class ECPipeline(object):
         r = df.groupby(['userId'])['gameId'].apply(lambda x: ','.join(x))
         df = df.join(r, on='userId', how='inner', lsuffix='_gid', rsuffix='_ugpdf')
 
-        df.lpi.fillna(0, inplace=True)
+        df.lpi.fillna(99999999, inplace=True)
 
         df.rename(columns={'hour_gid':'session_hours',
                      'gameId_gid':'session_gameIds',
