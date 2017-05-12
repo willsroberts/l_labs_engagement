@@ -104,16 +104,17 @@ class ECPipeline(object):
                                 bucket=self.get_s3_bucket(),
                                 bucket_keys=self.get_aws_keys())
         df.reset_index(inplace=True)
+        print df.head()
         df['date'] = pd.to_datetime(df.date)
         #Create Column for unique number of games played
         #across all sessions
         df['uniq_games_session'] = df.apply(lambda row : len(set(row['gameId'].split(','))), axis=1)
-
+        print df.head()
         #Create column for all hours played by user
         #across all sessions
         q = df.groupby(['userId'])['hour'].apply(lambda x: ','.join(x))
         df = df.join(q, on='userId', how='inner', lsuffix='_gid', rsuffix='_ugdf')
-
+        print df.head()
         #Create column for all games played by userId
         #across all sessions
         r = df.groupby(['userId'])['gameId'].apply(lambda x: ','.join(x))
@@ -123,6 +124,8 @@ class ECPipeline(object):
                      'gameId_gid':'session_gameIds',
                      'hour_ugdf':'all_user_gaming_hours',
                      'gameId_ugpdf':'all_user_games_plyd'})
+
+
 
         #Setting dateframe on pipeline object
         self.set_gid_data(gid_df=df)
@@ -176,6 +179,8 @@ class ECPipeline(object):
         churn_counts_sorted = df.groupby('user_id').churned.sum().sort_values()
         df = df.join(churn_counts_sorted, how='inner', on='user_id', lsuffix='_subs', rsuffix='_churn_counts')
         df['prior_churn_count'] = df['churned_churn_counts']-df['churned_subs']
+
+        df.drop(['churned_churn_counts','index','dup_row'],axis=1,inplace=True)
 
         #dropping columns not used in model
         #df.drop(['churned_sub_df','level_0','index'],axis=1,inplace=True)
