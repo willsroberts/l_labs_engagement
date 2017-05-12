@@ -167,6 +167,9 @@ class ECPipeline(object):
         #collapsing all weeks into single list
         gv_w = df.groupby(['userId'])['weekOfYear'].apply(lambda x: x.tolist())
         df.join(gv_w, how='inner', on='userId', lsuffix='_gv_id', rsuffix='_gv_w')
+        df.fillna(99999999,inplace=True)
+
+        df.rename(columns={'userId':'user_id'},inplace=True)
 
         self.set_gv_data(gv_df=df)
         return "LOGGING(FIX): GAME VAR DATA SET SUCCESSFULLY"
@@ -220,7 +223,9 @@ class ECPipeline(object):
         return "LOGGING(FIX): SUB DATA SET SUCCESSFULLY"
 
     def get_data_matrix(self):
-        return self.get_subs_data().join(self.get_gid_data(), how='inner', on='user_id', lsuffix='_subs_df', rsuffix='_gmid_df')
+        d_mat = self.get_subs_data().join(self.get_gid_data(), how='inner', on='user_id', lsuffix='_subs_df', rsuffix='_gmid_df')
+        d_mat = d_mat.join(self.get_gv_data(), how='inner', on='user_id', lsuffix='_tm_mat_df', rsuffix='_gvid_df')
+        return d_mat
 
 
     def preprocess_all_datasets(self, row_limit=None):
