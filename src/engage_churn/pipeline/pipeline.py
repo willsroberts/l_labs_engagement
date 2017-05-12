@@ -104,17 +104,17 @@ class ECPipeline(object):
                                 bucket=self.get_s3_bucket(),
                                 bucket_keys=self.get_aws_keys())
         df.reset_index(inplace=True)
-        print df.head()
+
         df['date'] = pd.to_datetime(df.date)
         #Create Column for unique number of games played
         #across all sessions
         df['uniq_games_session'] = df.apply(lambda row : len(set(row['gameId'].split(','))), axis=1)
-        print df.head()
+
         #Create column for all hours played by user
         #across all sessions
         q = df.groupby(['userId'])['hour'].apply(lambda x: ','.join(x))
         df = df.join(q, on='userId', how='inner', lsuffix='_gid', rsuffix='_ugdf')
-        print df.head()
+
         #Create column for all games played by userId
         #across all sessions
         r = df.groupby(['userId'])['gameId'].apply(lambda x: ','.join(x))
@@ -124,8 +124,6 @@ class ECPipeline(object):
                      'gameId_gid':'session_gameIds',
                      'hour_ugdf':'all_user_gaming_hours',
                      'gameId_ugpdf':'all_user_games_plyd'})
-
-
 
         #Setting dateframe on pipeline object
         self.set_gid_data(gid_df=df)
@@ -182,6 +180,8 @@ class ECPipeline(object):
 
         df.drop(['churned_churn_counts','index','dup_row'],axis=1,inplace=True)
 
+        df.rename(columns={'churned_subs':'churned'})
+
         #dropping columns not used in model
         #df.drop(['churned_sub_df','level_0','index'],axis=1,inplace=True)
 
@@ -191,18 +191,6 @@ class ECPipeline(object):
 
     def _get_todays_week_no(self):
         return date.today().isocalendar()[1]
-
-    def report_nulls_from_data(self):
-        null_report={}
-        if self.get_demo_data():
-            null_report['demo']=self.get_demo_data().isnull().sum()
-        if self.get_gv_data():
-            null_report['game_variety_data']= self.get_gv_data().isnull().sum()
-        if self.get_gid_data():
-            null_report['game_id_data'] = self.get_gid_data().isnull().sum()
-        if self.get_subs_data():
-            null_report['subs_data'] = self.get_subs_data().isnull().sum()
-        return "Null Summary of Pipeline Data: {}".format(null_report)
 
 if __name__ == "__main__":
     bucket = connect_bucket()
