@@ -85,12 +85,15 @@ class ECPipeline(object):
                               bucket=self.get_s3_bucket(),
                               bucket_keys=self.get_aws_keys())
         df.reset_index(inplace=True)
+
+        #dummify gender
         df_sex = pd.get_dummies(df.gender)
         df = pd.concat([df,df_sex],axis=1)
         df = df.rename(columns={'m':'is_male'})
+
         #No known individuals above age 117, so filtering those records
-        df = df[df['age'] < 117]
         #Unreasonable for age <5 for players
+        df = df[df['age'] < 117]
         df = df[df['age'] > 4]
 
         df.drop(['f','gender'],axis=1,inplace=True)
@@ -135,6 +138,7 @@ class ECPipeline(object):
                                 bucket=self.get_s3_bucket(),
                                 bucket_keys=self.get_aws_keys())
         df.reset_index(inplace=True)
+
         #Filtering out records with weeks of year into the future
         df = df[df['weekOfYear']< self._get_todays_week_no() + 1]
 
@@ -159,13 +163,25 @@ class ECPipeline(object):
                                 bucket_keys=self.get_aws_keys())
         df.reset_index(inplace=True)
 
+        df = df.head(100000)
+
         df['date'] = pd.to_datetime(df['date'])
         #Calculate the difference between every login by user from days of last login
         df['day_gap'] = df.groupby('user_id').date.diff()
+        df['day_gap'] = df.day_gap.dt.days
+
+        # print df.head()
+        #dummifying subcription data
+        account_status = pd.get_dummies(df.state)
+        pd.concat([df,account_status],axis=1)
+        df.rename(columns={'subs':'is_subs_acct'})
+        # print df.head()
+
+
 
         #creating churned user records
         #
-        df['churned'] = df['day_gap'].apply(lambda x: 1 if x > timedelta(days=self.get_churn_threshold()) else 0)
+        df['churned'] = df['day_gap'].apply(lambda x: 1 if x > self.get_churn_threshold() else 0)
         churn_df = df.groupby('user_id')['churned'].max()
         df.join(churn_df, how="inner",on='user_id', lsuffix='_sub_df', rsuffix='_ch_df')
 
@@ -178,9 +194,14 @@ class ECPipeline(object):
         df = df.join(churn_counts_sorted, how='inner', on='user_id', lsuffix='_subs', rsuffix='_churn_counts')
         df['prior_churn_count'] = df['churned_churn_counts']-df['churned_subs']
 
-        df.drop(['churned_churn_counts','index','dup_row'],axis=1,inplace=True)
+        df.workout_day.fillna(0,inplace=True)
+        df.gameplay_day.fillna(0,inplace=True)
+        df.day_gap.fillna(0,inplace=True)
 
-        df.rename(columns={'churned_subs':'churned'})
+        df.dropna(inplace=True)
+
+        df.drop(['churned_churn_counts','index','dup_row','state','date'],axis=1,inplace=True)
+        df.rename(columns={'churned_subs':'churned'}, inplace=True)
 
         #dropping columns not used in model
         #df.drop(['churned_sub_df','level_0','index'],axis=1,inplace=True)
@@ -189,9 +210,9 @@ class ECPipeline(object):
         return "LOGGING(FIX): SUB DATA SET SUCCESSFULLY"
 
     def preprocess_all_datasets(self):
-        self.preprocess_demo_df()
-        self.preprocess_game_id_data()
-        self.preprocess_game_variety_data()
+        # self.preprocess_demo_df()
+        # self.preprocess_game_id_data()
+        # self.preprocess_game_variety_data()
         self.preprocess_subs_data()
         return "LOGGING(FIX): PREPROCESSED SUCCESSFULLY"
 

@@ -6,7 +6,7 @@ def grid_search_dict():
     defines all the models and hyperparameters to optimize with grid search.
     returns a list of tuples - (model, dict-of-hyper_params)
     '''
-    # 
+    #
     # gd_boost = {
     #     'learning_rate':[1, 0.05],
     #     'max_depth':[2,4],
@@ -26,7 +26,7 @@ def grid_search_dict():
         }
 
     return [
-        (GradientBoostingClassifier(), gd_boost),
-        (AdaBoostClassifier(DecisionTreeClassifier()), ada_boost),
+        # (GradientBoostingClassifier(), gd_boost),
+        # (AdaBoostClassifier(DecisionTreeClassifier()), ada_boost),
         (RandomForestClassifier(), random_forest_grid)
     ]

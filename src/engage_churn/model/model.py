@@ -11,8 +11,9 @@ from sklearn.metrics import (
     )
 from sklearn.model_selection import train_test_split
 from sklearn.model_selection import GridSearchCV
-from model import grid_search_model
-from pipeline import ECPipeline
+from pipeline.pipeline import ECPipeline
+from utilities.aws_bucket_client import display_all_keys, get_keys_for_bucket, load_data_by_key, connect_bucket
+import grid_search_model
 
 class EngagementModel(object):
 
@@ -41,7 +42,7 @@ class EngagementModel(object):
     def get_x_matrix(self):
         return self.x_matrix
 
-    def set_label(self, labels):
+    def set_labels(self, labels):
         self.labels = labels
 
     def get_labels(self):
@@ -65,7 +66,7 @@ class EngagementModel(object):
     def report_model_results(self):
         for grid in self.get_gs_results():
             print "Grid Search Results: {}".format(grid.best_estimator_.__class__.__name__)
-            print "    params: {}".format(gs.best_params_)
+            print "    params: {}".format(grid.best_params_)
             print "    {} : {}".format(grid.get_params()['scoring'], grid.best_score_)
 
     def predict_and_score(self, models, X_test, y_test):
@@ -85,26 +86,38 @@ class EngagementModel(object):
         self.set_optimal_model(models[0])
         return "LOGGING (FIX): OPTIMAL MODEL SET, SUCCESSFULLY"
 
-    if __name__ == '__main__':
-        pipeline = ECPipeline()
-        pipeline.preprocess_all_datasets()
+if __name__ == '__main__':
+    pipeline = ECPipeline()
+    pipeline.set_s3_bucket(connect_bucket())
+    pipeline.set_aws_keys(get_keys_for_bucket())
 
-        df = pipeline.get_data_matrix()
-        df = df['lpi']
+    pipeline.preprocess_all_datasets()
 
-        model = EngagementModel()
-        model.set_label(labels=df.pop['churned'].values)
-        model.set_x_matrix(x_mat=df.values)
+    df = pipeline.get_data_matrix()
+    print df.head()
 
-        X_train, X_test, y_train, y_test = train_test_split(model.get_x_matrix(),
-                model.get_labels(), test_size=0.20, random_state=42)
+    model = EngagementModel()
+    model.set_labels(labels=df.pop('churned').values)
+    model.set_x_matrix(x_mat=df.values)
 
-        model.fit_grid_search( X_train, y_train )
+    X_train, X_test, y_train, y_test = train_test_split(model.get_x_matrix(),
+            model.get_labels(), test_size=0.20, random_state=42)
 
-        model.report_model_results()
+    model = LogisticRegression ()
+    model.fit(X_train, y_train)
+    y_predict = model.predict(X_test)
 
-        all_models = [g.best_estimator_ for g in model.get_gs_results()]
+    print model.coef_
+    print "Model Score: {} , Precision Score: {}, Recall Score: {}".format(model.score(X_test, y_test),
+           precision_score(y_test, y_predict),
+           recall_score(y_test, y_predict))
 
-        model.predict_and_score(all_models, X_test, y_test)
-
-        model.predict_and_score()
+    # model.fit_grid_search( X_train, y_train )
+    #
+    # model.report_model_results()
+    #
+    # all_models = [g.best_estimator_ for g in model.get_gs_results()]
+    #
+    # model.predict_and_score(all_models, X_test, y_test)
+    #
+    # model.predict_and_score()
