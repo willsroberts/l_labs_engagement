@@ -188,9 +188,18 @@ class ECPipeline(object):
         self.set_subs_data(df)
         return "LOGGING(FIX): SUB DATA SET SUCCESSFULLY"
 
+    def preprocess_all_datasets(self):
+        self.preprocess_demo_df()
+        self.preprocess_game_id_data()
+        self.preprocess_game_variety_data()
+        self.preprocess_subs_data()
+        return "LOGGING(FIX): PREPROCESSED SUCCESSFULLY"
 
     def _get_todays_week_no(self):
         return date.today().isocalendar()[1]
+
+    def get_data_matrix(self):
+        return self.get_subs_data()
 
 if __name__ == "__main__":
     bucket = connect_bucket()
