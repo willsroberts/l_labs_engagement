@@ -154,12 +154,12 @@ class ECPipeline(object):
         r = df.groupby(['userId'])['gameId'].apply(lambda x: ','.join(x))
         df = df.join(r, on='userId', how='inner', lsuffix='_gid', rsuffix='_ugpdf')
 
-        df.lpi.fillna(99999999999,                     inplace=True)
-        df.ffth_last_lpi_change.fillna(99999999999,    inplace=True)
-        df.frth_last_lpi_change.fillna(99999999999,    inplace=True)
-        df.thrd_last_lpi_change.fillna(99999999999,    inplace=True)
-        df.sec_last_lpi_change.fillna(99999999999,     inplace=True)
-        df.last_lpi_change.fillna(99999999999,         inplace=True)
+        df.lpi.fillna(df.lpi.median(),                     inplace=True)
+        df.ffth_last_lpi_change.fillna(df.ffth_last_lpi_change.median(),    inplace=True)
+        df.frth_last_lpi_change.fillna(df.frth_last_lpi_change.median(),    inplace=True)
+        df.thrd_last_lpi_change.fillna(df.thrd_last_lpi_change.median(),    inplace=True)
+        df.sec_last_lpi_change.fillna(df.sec_last_lpi_change.median(),     inplace=True)
+        df.last_lpi_change.fillna(df.last_lpi_change.median(),         inplace=True)
 
 
         df.rename(columns={'hour_gid':'session_hours',
@@ -260,9 +260,7 @@ class ECPipeline(object):
 
         df.workout_day.fillna(df.workout_day.median(),inplace=True)
         df.gameplay_day.fillna(df.gameplay_day.median(),inplace=True)
-        print "Day Gap Nulls: {}".format(df.day_gap.isnull().sum())
         df.day_gap.fillna(df.day_gap.median(),inplace=True)
-        print "Day Gap Nulls: {}".format(df.day_gap.isnull().sum())
 
         df.dropna(inplace=True)
 

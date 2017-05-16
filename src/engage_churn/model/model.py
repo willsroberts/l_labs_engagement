@@ -1,3 +1,4 @@
+from pipeline.pipeline import ECPipeline
 from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import (
@@ -11,9 +12,10 @@ from sklearn.metrics import (
     )
 from sklearn.model_selection import train_test_split
 from sklearn.model_selection import GridSearchCV
-from pipeline.pipeline import ECPipeline
+from timeit import default_timer as timer
 from utilities.aws_bucket_client import display_all_keys, get_keys_for_bucket, load_data_by_key, connect_bucket
 import grid_search_model
+
 
 class EngagementModel(object):
 
@@ -114,11 +116,18 @@ if __name__ == '__main__':
     model.set_x_matrix(x_mat=df.values)
 
     #Create Test-Train Split - coercing a 20% label presence in sample
+    start = timer()
     X_train, X_test, y_train, y_test = train_test_split(model.get_x_matrix(),
             model.get_labels(), test_size=0.20, random_state=42)
+    end = timer()
+    print(end-start)
 
     #Trains models on test split
+    start = timer()
     model.fit_grid_search( X_train, y_train )
+    end = timer()
+    print(end-start)
+
 
     #Print summary statistics from train
     model.report_model_results()
