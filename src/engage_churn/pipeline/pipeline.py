@@ -21,12 +21,6 @@ class ECPipeline(object):
         self.gid_data   = None
         self.subs_data  = None
         self.churn_threshold = 30
-        self.daily_categories =  {'late_night':[0,1,2,3],
-              'early_morning':[4,5,6,7],
-              'morning':[8,9,10,11],
-              'afternoon':[12,13,14,15],
-              'evening':[16,17,18,19],
-              'nighttime':[20,21,22,23]}
 
     def get_s3_bucket(self):
         return self.bucket
