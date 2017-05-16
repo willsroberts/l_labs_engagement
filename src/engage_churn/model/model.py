@@ -1,6 +1,7 @@
 from pipeline.pipeline import ECPipeline
 from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
 from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import classification_report
 from sklearn.metrics import (
     precision_score,
     recall_score,
@@ -82,8 +83,11 @@ class EngagementModel(object):
         for model in models:
             print model.__class__.__name__
             for metric in metrics:
-                print "  ",metric.__name__, ":", metric(y_test, model.predict(X_test))
+                y_predict = model.predict(X_test)
+                print "  ",metric.__name__, ":", metric(y_test, y_predict )
+                # print classification_report(y_test, y_predict)
             print " "
+
 
         self.set_optimal_model(models[0])
         return "LOGGING (FIX): OPTIMAL MODEL SET, SUCCESSFULLY"
@@ -105,7 +109,7 @@ if __name__ == '__main__':
     pipeline = ECPipeline()
     pipeline.set_s3_bucket(connect_bucket())
     pipeline.set_aws_keys(get_keys_for_bucket())
-    pipeline.preprocess_all_datasets()
+    pipeline.preprocess_all_datasets(100000)
 
     #Returns matrix to run predictions from in pipeline
     df = pipeline.get_data_matrix()
@@ -118,7 +122,7 @@ if __name__ == '__main__':
     #Create Test-Train Split - coercing a 20% label presence in sample
     start = timer()
     X_train, X_test, y_train, y_test = train_test_split(model.get_x_matrix(),
-            model.get_labels(), test_size=0.20, random_state=42)
+            model.get_labels(), test_size=0.20, random_state=42, stratify=model.get_labels())
     end = timer()
     print(end-start)
 
