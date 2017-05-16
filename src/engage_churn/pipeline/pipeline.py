@@ -1,4 +1,5 @@
 import pandas as pd
+import numpy as np
 from datetime import timedelta,date
 # from engage_churn.utilities import aws_bucket_client
 import os
@@ -99,9 +100,9 @@ class ECPipeline(object):
         df = df[df['age'] < 117]
         df = df[df['age'] > 4]
 
-        df.drop(['f','gender'],axis=1,inplace=True)
+        df.drop(['f','gender','index','language'],axis=1,inplace=True)
+        df.rename(columns={'userId':'user_id'}, inplace=True)
 
-        print df.describe()[['age','is_male']]
         self.set_demo_data(demo_df=df)
         return "LOGGING (FIX): DEMO DATA SET, SUCCESSFULLY"
 
@@ -112,32 +113,75 @@ class ECPipeline(object):
         df.reset_index(inplace=True)
 
         if row_limit:
+
             df = df.head(row_limit)
 
         df['date'] = pd.to_datetime(df.date)
         #Create Column for unique number of games played
         #across all sessions
-        df['uniq_games_session'] = df.apply(lambda row : len(set(row['gameId'].split(','))), axis=1)
 
-        #Create column for all hours played by user
-        #across all sessions
+        #Create Last 3 Week Change columns
+
+        df ['delta_with_lw']        = df.groupby('userId').lpi.diff()
+        week_deltas = df.groupby('userId')['delta_with_lw'].apply(lambda x: x.tolist())
+        df = df.join(week_deltas, how='inner', on='userId', lsuffix='_gvid', rsuffix='_wl')
+        df['last_5_deltas']         = df.delta_with_lw_wl.apply(lambda x: x[-5:])
+        # Last 5 Deltas
+        # [1st, 2nd, 3rd, 4th, 5th]
+        #
+        # import ipdb; ipdb.set_trace()
+        delta_df  =  df.last_5_deltas.apply(lambda x: pd.Series(self._create_five_lpi_values(x)))
+        delta_df.columns=['ffth_last_lpi_change','frth_last_lpi_change','thrd_last_lpi_change','sec_last_lpi_change','last_lpi_change']
+        df = pd.concat([df,delta_df], axis=1)
+
+        # #Create column for all hours played by user
+        # #across all sessions
+
+        # Collect all user gaming hours
         q = df.groupby(['userId'])['hour'].apply(lambda x: ','.join(x))
         df = df.join(q, on='userId', how='inner', lsuffix='_gid', rsuffix='_ugdf')
+        df.rename(columns={'hour_ugdf':'all_user_gaming_hours'}, inplace=True)
+        # Convert strings of hours to integers
+        list_of_ints = df.all_user_gaming_hours.apply(lambda x: self.return_list_from_string_col(x))
+        list_of_ints.name = 'game_hours_ints'
+        df = pd.concat([df,list_of_ints],axis=1)
 
-        #Create column for all games played by userId
-        #across all sessions
+        df['hour_avg'] = df.game_hours_ints.apply(lambda x: np.mean(x))
+        df['hour_std'] = df.game_hours_ints.apply(lambda x: np.std(x))
+
+        # Create column for all games played by userId
+        # across all sessions
         r = df.groupby(['userId'])['gameId'].apply(lambda x: ','.join(x))
         df = df.join(r, on='userId', how='inner', lsuffix='_gid', rsuffix='_ugpdf')
 
-        df.lpi.fillna(99999999, inplace=True)
+        df.lpi.fillna(99999999999,                     inplace=True)
+        df.ffth_last_lpi_change.fillna(99999999999,    inplace=True)
+        df.frth_last_lpi_change.fillna(99999999999,    inplace=True)
+        df.thrd_last_lpi_change.fillna(99999999999,    inplace=True)
+        df.sec_last_lpi_change.fillna(99999999999,     inplace=True)
+        df.last_lpi_change.fillna(99999999999,         inplace=True)
+
 
         df.rename(columns={'hour_gid':'session_hours',
                      'gameId_gid':'session_gameIds',
                      'hour_ugdf':'all_user_gaming_hours',
                      'gameId_ugpdf':'all_user_games_plyd',
-                     'userId':'user_id'})
+                     'userId':'user_id'},inplace=True)
 
-        df.drop(['hour_gid', 'date', 'gameId_gid', 'hour_ugdf', 'gameId_ugpdf','index'],axis=1,inplace=True)
+
+        df.drop(['date'],                   axis=1,inplace=True)
+        df.drop(['index'],                  axis=1,inplace=True)
+        df.drop(['last_5_deltas'] ,         axis=1,inplace=True)
+        df.drop(['delta_with_lw_wl'],       axis=1,inplace=True)
+        df.drop(['delta_with_lw_gvid'],     axis=1,inplace=True)
+        df.drop(['all_user_gaming_hours'],  axis=1,inplace=True)
+        df.drop(['all_user_games_plyd'],    axis=1,inplace=True)
+        df.drop(['session_gameIds'],        axis=1,inplace=True)
+        df.drop(['session_hours'],          axis=1,inplace=True)
+        df.drop(['game_hours_ints'],        axis=1,inplace=True)
+        df.drop(['lpi'],                    axis=1,inplace=True)
+
+        df.drop_duplicates(keep='last',inplace=True)
 
         #Setting dateframe on pipeline object
         self.set_gid_data(gid_df=df)
@@ -157,19 +201,26 @@ class ECPipeline(object):
         df = df[df['weekOfYear']< self._get_todays_week_no() + 1]
 
         #collapsing lpis over time to single list
-        lpi_bw = df.groupby(['userId'])['lpi'].apply(lambda x: x.tolist())
-        df = df.join(lpi_bw, how='inner', on='userId', lsuffix='_gv_id', rsuffix='_lpidf')
 
-        #collapsing game variety over time to single list
-        gv_bw = df.groupby(['userId'])['gameVariety'].apply(lambda x: x.tolist())
-        df.join(gv_bw, how='inner', on='userId', lsuffix='_gv_id', rsuffix='_rightgv')
+        #setting game variety metrics - max, std, avg
+        df.rename(columns={'userId':'user_id'},inplace=True)
+
+        gv_bw = df.groupby(['user_id'])['gameVariety'].apply(lambda x: x.tolist())
+        df = df.join(gv_bw, how='inner', on='user_id', lsuffix='_gv_id', rsuffix='_rightgv')
+        df.rename(columns={'gameVariety_rightgv':'game_varieties'}, inplace=True)
+
+        df['gv_max']        = df.game_varieties.apply(lambda x: np.max(x))
+        df['gv_avg']        = df.game_varieties.apply(lambda x: np.mean(x))
+        df['gv_std_dev']    = df.game_varieties.apply(lambda x: np.std(x))
 
         #collapsing all weeks into single list
-        gv_w = df.groupby(['userId'])['weekOfYear'].apply(lambda x: x.tolist())
-        df.join(gv_w, how='inner', on='userId', lsuffix='_gv_id', rsuffix='_gv_w')
-        df.fillna(99999999,inplace=True)
+        df.gv_max.fillna(0,inplace=True)
+        df.gv_avg.fillna(0,inplace=True)
+        df.gv_std_dev.fillna(0,inplace=True)
 
-        df.rename(columns={'userId':'user_id'},inplace=True)
+        df.drop(['index','weekOfYear','lpi', 'gameVariety_gv_id', 'game_varieties'],axis=1,inplace=True)
+
+        df.drop_duplicates(keep='last', inplace=True)
 
         self.set_gv_data(gv_df=df)
         return "LOGGING(FIX): GAME VAR DATA SET SUCCESSFULLY"
@@ -207,9 +258,11 @@ class ECPipeline(object):
         df = df.join(churn_counts_sorted, how='inner', on='user_id', lsuffix='_subs', rsuffix='_churn_counts')
         df['prior_churn_count'] = df['churned_churn_counts']-df['churned_subs']
 
-        df.workout_day.fillna(0,inplace=True)
-        df.gameplay_day.fillna(0,inplace=True)
-        df.day_gap.fillna(0,inplace=True)
+        df.workout_day.fillna(df.workout_day.median(),inplace=True)
+        df.gameplay_day.fillna(df.gameplay_day.median(),inplace=True)
+        print "Day Gap Nulls: {}".format(df.day_gap.isnull().sum())
+        df.day_gap.fillna(df.day_gap.median(),inplace=True)
+        print "Day Gap Nulls: {}".format(df.day_gap.isnull().sum())
 
         df.dropna(inplace=True)
 
@@ -223,22 +276,41 @@ class ECPipeline(object):
         return "LOGGING(FIX): SUB DATA SET SUCCESSFULLY"
 
     def get_data_matrix(self):
+        print "LOGGING(FIX): RETURNING DATA MATRIX"
         d_mat = self.get_subs_data().join(self.get_gid_data(), how='inner', on='user_id', lsuffix='_subs_df', rsuffix='_gmid_df')
+        print d_mat.head()
         d_mat = d_mat.join(self.get_gv_data(), how='inner', on='user_id', lsuffix='_tm_mat_df', rsuffix='_gvid_df')
+        print d_mat.head()
+        d_mat = d_mat.join(self.get_demo_data(), how='inner', on='user_id', lsuffix='_subs_gv_tm', rsuffix='_demo_df')
+        print d_mat.head()
+
         return d_mat
 
 
     def preprocess_all_datasets(self, row_limit=None):
-        # self.preprocess_demo_df(row_limit=row_limit)
+        self.preprocess_demo_df(row_limit=row_limit)
         self.preprocess_game_id_data(row_limit=row_limit)
-        # self.preprocess_game_variety_data(row_limit=row_limit)
+        self.preprocess_game_variety_data(row_limit=row_limit)
         self.preprocess_subs_data(row_limit=row_limit)
         return "LOGGING(FIX): PREPROCESSED SUCCESSFULLY"
 
     def _get_todays_week_no(self):
         return date.today().isocalendar()[1]
 
+    def _create_five_lpi_values(self, x):
+        # import ipdb; ipdb.set_trace()
+        vals = np.zeros(5)
+        vals[:] = np.NAN
+        for i in xrange(len(x)):
+            vals[i] = x[i]
+        return list(vals)
 
+    def return_list_from_string_col(self, x):
+        # import ipdb; ipdb.set_trace()
+        return [int(y) for y in x.split(',')]
+
+    def return_mean_of_list(self,x):
+        return np.mean(x)
 
 if __name__ == "__main__":
     bucket = connect_bucket()
