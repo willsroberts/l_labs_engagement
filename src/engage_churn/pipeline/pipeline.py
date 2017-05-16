@@ -276,6 +276,8 @@ class ECPipeline(object):
         d_mat = d_mat.join(self.get_demo_data(), how='inner', on='user_id', lsuffix='_subs_gv_tm', rsuffix='_demo_df')
         print d_mat.head()
 
+        d_mat.drop(['user_id_demo_df', 'user_id_gvid_df', 'user_id_subs_df', 'user_id_tm_mat_df', 'user_id_subs_gv_tm'], axis=1, inplace=True)
+
         return d_mat
 
 
