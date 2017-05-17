@@ -109,7 +109,7 @@ if __name__ == '__main__':
     pipeline = ECPipeline()
     pipeline.set_s3_bucket(connect_bucket())
     pipeline.set_aws_keys(get_keys_for_bucket())
-    pipeline.preprocess_all_datasets(100000)
+    pipeline.preprocess_all_datasets()
 
     #Returns matrix to run predictions from in pipeline
     df = pipeline.get_data_matrix()
