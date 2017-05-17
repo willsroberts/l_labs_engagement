@@ -191,7 +191,7 @@ class ECPipeline(object):
         df = load_data_by_key(key='game_var_key',
                                 bucket=self.get_s3_bucket(),
                                 bucket_keys=self.get_aws_keys())
-        df.reset_index(inplace=True)
+        # df.reset_index(inplace=True)
 
         if row_limit:
             df = df.head(row_limit)
@@ -230,7 +230,7 @@ class ECPipeline(object):
         df = load_data_by_key(key='subs_key',
                                 bucket=self.get_s3_bucket(),
                                 bucket_keys=self.get_aws_keys())
-        df.reset_index(inplace=True)
+        # df.reset_index(inplace=True)
 
         if row_limit:
             df = df.head(row_limit)
