@@ -76,6 +76,7 @@ class ECPipeline(object):
 #####################################################
 
     def preprocess_demo_df(self, row_limit):
+        print "LOGGING (FIX): DEMO DATA SET PREPROCESSING"
         df = load_data_by_key(key='demo_key',
                               bucket=self.get_s3_bucket(),
                               bucket_keys=self.get_aws_keys())
@@ -102,6 +103,7 @@ class ECPipeline(object):
         return "LOGGING (FIX): DEMO DATA SET, SUCCESSFULLY"
 
     def preprocess_game_id_data(self, row_limit=None):
+        print "LOGGING(FIX): GAME ID DATA SET PREPROCESSING"
         df = load_data_by_key(key='game_id_key',
                                 bucket=self.get_s3_bucket(),
                                 bucket_keys=self.get_aws_keys())
@@ -184,6 +186,7 @@ class ECPipeline(object):
         return "LOGGING(FIX): GAME ID DATA SET SUCCESSFULLY"
 
     def preprocess_game_variety_data(self, row_limit=None):
+        print "LOGGING(FIX): GAME VAR DATA SET PREPROCESSING"
         #if self.get_game_variety_data not none, prompt to make sure
         df = load_data_by_key(key='game_var_key',
                                 bucket=self.get_s3_bucket(),
@@ -223,6 +226,7 @@ class ECPipeline(object):
         return "LOGGING(FIX): GAME VAR DATA SET SUCCESSFULLY"
 
     def preprocess_subs_data(self, row_limit=None):
+        print "LOGGING(FIX): SUB DATA SET PREPROCESSING"
         df = load_data_by_key(key='subs_key',
                                 bucket=self.get_s3_bucket(),
                                 bucket_keys=self.get_aws_keys())
@@ -295,6 +299,7 @@ class ECPipeline(object):
 
 
     def preprocess_all_datasets(self, row_limit=None):
+        print "LOGGING(FIX): PREPROCESSING DATA"
         self.preprocess_demo_df(row_limit=row_limit)
         self.preprocess_game_id_data(row_limit=row_limit)
         self.preprocess_game_variety_data(row_limit=row_limit)
