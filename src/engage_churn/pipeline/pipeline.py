@@ -279,17 +279,17 @@ class ECPipeline(object):
         print "LOGGING(FIX): RETURNING DATA MATRIX"
         print "Uniq Users BEF JOIN 1 : subs:{} , gid:{}".format(pd.Series.nunique(self.get_subs_data().user_id), pd.Series.nunique(self.get_gid_data().user_id))
         d_mat = self.get_subs_data().join(self.get_gid_data(), how='inner', on='user_id', lsuffix='_subs_df', rsuffix='_gmid_df')
-        d_mat.reset_index(inplace=True)
+        # d_mat.reset_index(inplace=True)
         print d_mat.head(1)
 
         print "Uniq Users BEF JOIN 2 : mat:{} , gv:{}".format(pd.Series.nunique(d_mat.user_id), pd.Series.nunique(self.get_gv_data().user_id))
         d_mat = d_mat.join(self.get_gv_data(), how='inner', on='user_id', lsuffix='_tm_mat_df', rsuffix='_gvid_df')
-        d_mat.reset_index(inplace=True)
+        # d_mat.reset_index(inplace=True)
         print d_mat.head(1)
 
         print "Uniq Users BEF JOIN 3 : mat:{} , demo:{}".format(pd.Series.nunique(d_mat.user_id), pd.Series.nunique(self.get_demo_data().user_id))
         d_mat = d_mat.join(self.get_demo_data(), how='inner', on='user_id', lsuffix='_subs_gv_tm', rsuffix='_demo_df')
-        d_mat.reset_index(inplace=True)
+        # d_mat.reset_index(inplace=True)
         print d_mat.head(1)
         print "Uniq Users FINAL : {}".format(pd.Series.nunique(d_mat.user_id))
 
