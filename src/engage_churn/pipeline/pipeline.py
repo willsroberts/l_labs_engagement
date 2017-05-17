@@ -108,38 +108,30 @@ class ECPipeline(object):
                                 bucket=self.get_s3_bucket(),
                                 bucket_keys=self.get_aws_keys())
         df.reset_index(inplace=True)
-
+        import ipdb; ipdb.set_trace()
         if row_limit:
 
             df = df.head(row_limit)
 
+        #convert format of date field
         df['date'] = pd.to_datetime(df.date)
-        #Create Column for unique number of games played
-        #across all sessions
 
-        #Create Last 3 Week Change columns
-
+        #Create Last 5 Week Change columns
         df ['delta_with_lw']        = df.groupby('userId').lpi.diff()
         week_deltas = df.groupby('userId')['delta_with_lw'].apply(lambda x: x.tolist())
         df = df.join(week_deltas, how='inner', on='userId', lsuffix='_gvid', rsuffix='_wl')
         df['last_5_deltas']         = df.delta_with_lw_wl.apply(lambda x: x[-5:])
         # Last 5 Deltas
-        # [1st, 2nd, 3rd, 4th, 5th]
-        #
-        # import ipdb; ipdb.set_trace()
         delta_df  =  df.last_5_deltas.apply(lambda x: pd.Series(self._create_five_lpi_values(x)))
         delta_df.columns=['ffth_last_lpi_change','frth_last_lpi_change','thrd_last_lpi_change','sec_last_lpi_change','last_lpi_change']
         df = pd.concat([df,delta_df], axis=1)
-
-        # #Create column for all hours played by user
-        # #across all sessions
 
         # Collect all user gaming hours
         q = df.groupby(['userId'])['hour'].apply(lambda x: ','.join(x))
         df = df.join(q, on='userId', how='inner', lsuffix='_gid', rsuffix='_ugdf')
         df.rename(columns={'hour_ugdf':'all_user_gaming_hours'}, inplace=True)
         # Convert strings of hours to integers
-        list_of_ints = df.all_user_gaming_hours.apply(lambda x: self.return_list_from_string_col(x))
+        list_of_ints = df.all_user_gaming_hours.apply(lambda x: map(int, x.split(',')))
         list_of_ints.name = 'game_hours_ints'
         df = pd.concat([df,list_of_ints],axis=1)
 
