@@ -75,7 +75,7 @@ class ECPipeline(object):
 
 #####################################################
 
-    def preprocess_demo_df(self, row_limit):
+    def preprocess_demo_df(self, row_limit=None):
         print "LOGGING (FIX): DEMO DATA SET PREPROCESSING"
         df = load_data_by_key(key='demo_key',
                               bucket=self.get_s3_bucket(),
@@ -97,7 +97,7 @@ class ECPipeline(object):
 
         df.drop(['f','gender','index','language'],axis=1,inplace=True)
         df.rename(columns={'userId':'user_id'}, inplace=True)
-        df.reset_index(inplace=True)
+        # df.reset_index(inplace=True)
 
         self.set_demo_data(demo_df=df)
         return "LOGGING (FIX): DEMO DATA SET, SUCCESSFULLY"
@@ -179,7 +179,7 @@ class ECPipeline(object):
         df.drop(['lpi'],                    axis=1,inplace=True)
 
         df.drop_duplicates(keep='last',inplace=True)
-        df.reset_index(inplace=True)
+        # df.reset_index(inplace=True)
 
         #Setting dateframe on pipeline object
         self.set_gid_data(gid_df=df)
@@ -220,7 +220,7 @@ class ECPipeline(object):
         df.drop(['index','weekOfYear','lpi', 'gameVariety_gv_id', 'game_varieties'],axis=1,inplace=True)
 
         df.drop_duplicates(keep='last', inplace=True)
-        df.reset_index(inplace=True)
+        # df.reset_index(inplace=True)
 
         self.set_gv_data(gv_df=df)
         return "LOGGING(FIX): GAME VAR DATA SET SUCCESSFULLY"
@@ -267,7 +267,7 @@ class ECPipeline(object):
 
         df.drop(['churned_churn_counts','index','dup_row','state','date','day_gap'],axis=1,inplace=True)
         df.rename(columns={'churned_subs':'churned'}, inplace=True)
-        df.reset_index(inplace=True)
+        # df.reset_index(inplace=True)
 
         #dropping columns not used in model
         #df.drop(['churned_sub_df','level_0','index'],axis=1,inplace=True)
