@@ -6,6 +6,8 @@ import os
 # import sys
 import pprint
 from utilities.aws_bucket_client import display_all_keys, get_keys_for_bucket, load_data_by_key, connect_bucket
+from utilities.progress import print_progress_bar
+from time import sleep
 
 # rel_path = os.getcwd()
 # sys.path.append(rel_path)
@@ -96,6 +98,9 @@ class ECPipeline(object):
 
         result_df = pd.DataFrame()
 
+        i = 0
+        # Initial call to print 0% progress
+        printProgressBar(i, l, prefix = 'Progress:', suffix = 'Complete', length = 50)
         for df in df_chunks:
             #
             #   DUMMIFY AND FILTER
@@ -112,6 +117,7 @@ class ECPipeline(object):
         #
         #   SET RESULTS ONTO PIPELINE OBJ
         #
+        result_df.reset_index(drop=True,inplace=True)
         self.set_demo_data(demo_df=result_df)
         return "LOGGING (FIX): DEMO DATA SET, SUCCESSFULLY"
 
@@ -166,7 +172,7 @@ class ECPipeline(object):
         result_df = self.drop_unused_gid_features(result_df)
 
         result_df.drop_duplicates(keep='last',inplace=True)
-            #Setting dateframe on pipeline object
+        result_df.reset_index(drop=True,inplace=True)
         self.set_gid_data(gid_df=result_df)
         return "LOGGING(FIX): GAME ID DATA SET SUCCESSFULLY"
 
@@ -297,6 +303,7 @@ class ECPipeline(object):
 
         result_df.drop(['churned_churn_counts','index','dup_row','state','date','day_gap'],axis=1,inplace=True)
         result_df.rename(columns={'churned_subs':'churned'}, inplace=True)
+        result_df.reset_index(drop=True,inplace=True)
 
         self.set_subs_data(result_df)
         return "LOGGING(FIX): SUB DATA SET SUCCESSFULLY"
@@ -346,17 +353,17 @@ class ECPipeline(object):
         print "LOGGING(FIX): RETURNING DATA MATRIX"
         print "Uniq Users BEF JOIN 1 : subs:{} , gid:{}".format(pd.Series.nunique(self.get_subs_data().user_id), pd.Series.nunique(self.get_gid_data().user_id))
         d_mat = self.get_subs_data().join(self.get_gid_data(), how='inner', on='user_id', lsuffix='_subs_df', rsuffix='_gmid_df')
-        # d_mat.reset_index(inplace=True)
+        d_mat.reset_index(drop=True, inplace=True)
         print d_mat.head(1)
 
         print "Uniq Users BEF JOIN 2 : mat:{} , gv:{}".format(pd.Series.nunique(d_mat.user_id), pd.Series.nunique(self.get_gv_data().user_id))
         d_mat = d_mat.join(self.get_gv_data(), how='inner', on='user_id', lsuffix='_tm_mat_df', rsuffix='_gvid_df')
-        # d_mat.reset_index(inplace=True)
+        d_mat.reset_index(drop=True, inplace=True)
         print d_mat.head(1)
 
         print "Uniq Users BEF JOIN 3 : mat:{} , demo:{}".format(pd.Series.nunique(d_mat.user_id), pd.Series.nunique(self.get_demo_data().user_id))
         d_mat = d_mat.join(self.get_demo_data(), how='inner', on='user_id', lsuffix='_subs_gv_tm', rsuffix='_demo_df')
-        # d_mat.reset_index(inplace=True)
+        d_mat.reset_index(drop=True, inplace=True)
         print d_mat.head(1)
         print "Uniq Users FINAL : {}".format(pd.Series.nunique(d_mat.user_id))
 
