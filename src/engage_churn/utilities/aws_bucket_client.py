@@ -21,7 +21,7 @@ def display_all_keys(bucket=None, H=False):
         print display_all_keys.__doc__
     return bucket.get_all_keys()
 
-def load_data_by_key(key=None, bucket=None, bucket_keys=None, H=False):
+def load_data_by_key(key=None, bucket=None, bucket_keys=None, row_limit=None, H=False):
     '''
     IN: Key for S3 Bucket, S3 Bucket, YAML Keys for Bucket, Help Flag Method
     OUT: (Type: Dataframe)
@@ -32,12 +32,53 @@ def load_data_by_key(key=None, bucket=None, bucket_keys=None, H=False):
     if H:
         print load_data_by_key.__doc__
     if key in bucket_keys.keys():
-        df = pd.DataFrame.from_csv(bucket.get_key(bucket_keys[str(key)]))
+        df = pd.read_csv(bucket.get_key(bucket_keys[str(key)]))
         df.reset_index(inplace=True)
+        standardize_user_id(df)
+        if row_limit:
+            df = df.head(row_limit)
+        dfs = build_chunks(df,10)
     else:
         print "ERROR <= Update Logging => NULL, KEY"
         print load_data_by_key.__doc__
-    return df
+    return dfs
+
+def standardize_user_id(df):
+    if "userId" in df.columns:
+        df.rename(columns={'userId':'user_id'},inplace=True)
+        response = "STANDARDIZED"
+    response = "ALREADY STANDARD"
+    return "USER ID " + response
+
+def build_chunks(df, mod):
+
+    ix_start = df.shape[0]/mod
+    ixs = [0]
+    dfs = []
+    for ix in xrange(mod-1):
+        ixs.append(ix_start*(ix+1))
+    ixs.append(df.shape[0]-1)
+
+    for i, ix in enumerate(ixs):
+        if ix < df.shape[0]-1 and ix > 0:
+            i_usr = df.iloc[ix].user_id
+            j_usr = df.iloc[ix].user_id
+
+            while i_usr == j_usr:
+                ix += 1
+                j_usr = df.iloc[ix].user_id
+                ixs[i] = ix
+
+    bounds = []
+    for i,c in enumerate(ixs):
+        if i< len(ixs) - 1:
+            bounds.append((c,ixs[i+1]))
+
+    for tup in bounds:
+        dfs.append(df.iloc[tup[0]:tup[1]])
+
+    return dfs
+
 
 def connect_bucket(H=False):
     '''
