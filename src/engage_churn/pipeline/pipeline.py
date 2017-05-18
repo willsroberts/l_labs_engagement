@@ -6,7 +6,6 @@ import os
 # import sys
 import pprint
 from utilities.aws_bucket_client import display_all_keys, get_keys_for_bucket, load_data_by_key, connect_bucket
-from utilities.progress import print_progress_bar
 from time import sleep
 
 # rel_path = os.getcwd()
