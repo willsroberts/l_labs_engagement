@@ -97,9 +97,7 @@ class ECPipeline(object):
 
         result_df = pd.DataFrame()
 
-        i = 0
-        # Initial call to print 0% progress
-        printProgressBar(i, l, prefix = 'Progress:', suffix = 'Complete', length = 50)
+
         for df in df_chunks:
             #
             #   DUMMIFY AND FILTER
