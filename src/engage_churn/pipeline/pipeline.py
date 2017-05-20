@@ -2,7 +2,7 @@ import pandas as pd
 import numpy as np
 from datetime import timedelta, date
 # from engage_churn.utilities import aws_bucket_client
-import os
+import os, gc
 # import sys
 import pprint
 from utilities.aws_bucket_client import (
@@ -90,7 +90,7 @@ class ECPipeline(object):
 
 #####################################################
 
-    def preprocess_demo_df(self, row_limit=None):
+    def preprocess_demo_data(self, row_limit=None):
         '''
         IN: Optional record limit
         DESC:
@@ -121,8 +121,10 @@ class ECPipeline(object):
             # Unreasonable for age <5 for players
             df = self.filter_user_by_age(df)
             result_df = pd.concat((result_df, df), axis=0)
+            del df
 
         del df_chunks
+        gc.collect()
 
         # Dropping columns not needed
         result_df.drop(['f', 'gender', 'language', 'index'], axis=1, inplace=True)
@@ -138,17 +140,6 @@ class ECPipeline(object):
                                   file_name='intermed_demograph_',
                                   H=False)
         return "LOGGING(FIX): DEMO DATA SET, SUCCESSFULLY"
-
-    def dummify_sex_data(self, df):
-        df_sex = pd.get_dummies(df.gender)
-        df = pd.concat([df, df_sex], axis=1)
-        df = df.rename(columns={'m': 'is_male'})
-        return df
-
-    def filter_user_by_age(self, df):
-        df = df[df['age'] < 117]
-        df = df[df['age'] > 4]
-        return df
 
     def preprocess_game_id_data(self, row_limit=None):
         '''
@@ -175,13 +166,15 @@ class ECPipeline(object):
 
         for df in df_chunks:
             df['date'] = pd.to_datetime(df.date)
-            df = self.create_lpi_history_features(df)
-            df = self.create_gaming_hours_features(df)
-            df = self.create_game_id_features(df)
+            df = self.create_feats_lpi_history(df)
+            df = self.create_feats_gaming_hours(df)
+            df = self.create_feat_tot_usr_games(df)
             df = self.fill_gid_na_vals(df)
             result_df = pd.concat((result_df, df), axis=0)
+            del df
 
-        del df_chunk
+        del df_chunks
+        gc.collect()
 
         result_df.rename(columns={'hour_gid': 'session_hours',
                                   'gameId_gid': 'session_gameIds',
@@ -204,84 +197,6 @@ class ECPipeline(object):
                                   H=False)
         return "LOGGING(FIX): GAME ID DATA SET SUCCESSFULLY"
 
-    def fill_gid_na_vals(self, df):
-        df.lpi.fillna(df.lpi.median(), inplace=True)
-        df.ffth_last_lpi_change.fillna(0, inplace=True)
-        df.frth_last_lpi_change.fillna(0, inplace=True)
-        df.thrd_last_lpi_change.fillna(0, inplace=True)
-        df.sec_last_lpi_change.fillna(0, inplace=True)
-        df.last_lpi_change.fillna(0, inplace=True)
-        return df
-
-    def create_lpi_history_features(self, df):
-        #create first lpi record
-        a = df.groupby('user_id')['lpi'].first()
-        df = df.join(a, how='inner', on='user_id', lsuffix='_og', rsuffix='_flpi')
-        del a
-        df.rename(columns={'lpi_og':'lpi'},inplace=True)
-        # Create Last 5 Week Change columns
-        df['delta_with_lw'] = df.groupby('user_id').lpi.diff()
-        week_deltas = df.groupby('user_id')['delta_with_lw'].apply(lambda x: x.tolist())
-        df = df.join(week_deltas, how='inner', on='user_id', lsuffix='_gvid', rsuffix='_wl')
-        del week_deltas
-        df['last_5_deltas'] = df.delta_with_lw_wl.apply(lambda x: x[-5:])
-
-        # Last 5 Deltas
-        delta_df = df.last_5_deltas.apply(lambda x: pd.Series(self._create_five_lpi_values(x)))
-        delta_df.columns = ['ffth_last_lpi_change', 'frth_last_lpi_change', 'thrd_last_lpi_change', 'sec_last_lpi_change', 'last_lpi_change']
-        df = pd.concat([df, delta_df], axis=1)
-        del delta_df
-        return df
-
-    def create_gaming_hours_features(self, df):
-        '''
-
-        '''
-        df['session_hour_play'] = df.hour.apply(lambda x: map(int, x.split(',')))
-        df['length_of_session'] = df.session_hour_play.apply(lambda x: abs(x[len(x)-1] - x[0]))
-        p = df.groupby('user_id')['length_of_session'].mean()
-        df = df.join(p, on='user_id', how='inner', lsuffix='_hrdf', rsuffix='_avgs')
-        del p
-
-        # Collect all user gaming hours
-        q = df.groupby(['user_id'])['hour'].apply(lambda x: ','.join(x))
-        df = df.join(q, on='user_id', how='inner', lsuffix='_gid', rsuffix='_ugdf')
-        df.rename(columns={'hour_ugdf': 'all_user_gaming_hours'}, inplace=True)
-        del q
-        # Convert strings of hours to integers
-        rs = df.all_user_gaming_hours.apply(lambda x: map(int, x.split(',')))
-        r.name = 'game_hours_ints'
-        df = pd.concat([df, r], axis=1)
-        del r
-
-        df['hour_avg'] = df.game_hours_ints.apply(lambda x: np.mean(x))
-        df['hour_std'] = df.game_hours_ints.apply(lambda x: np.std(x))
-        return df
-
-    def create_game_id_features(self, df):
-        # Create column for all games played by userId
-        # across all sessions
-        r = df.groupby(['user_id'])['gameId'].apply(lambda x: ','.join(x))
-        df = df.join(r, on='user_id', how='inner', lsuffix='_gid', rsuffix='_ugpdf')
-        del r
-        return df
-
-    def drop_unused_gid_features(self, df):
-        df.drop(['date'], axis=1, inplace=True)
-        df.drop(['index'], axis=1, inplace=True)
-        df.drop(['last_5_deltas'], axis=1, inplace=True)
-        df.drop(['delta_with_lw_wl'], axis=1, inplace=True)
-        df.drop(['delta_with_lw_gvid'], axis=1, inplace=True)
-        df.drop(['all_user_gaming_hours'], axis=1, inplace=True)
-        df.drop(['all_user_games_plyd'], axis=1, inplace=True)
-        df.drop(['session_gameIds'], axis=1, inplace=True)
-        df.drop(['session_hours'], axis=1, inplace=True)
-        df.drop(['game_hours_ints'], axis=1, inplace=True)
-        df.drop(['lpi'], axis=1, inplace=True)
-        df.drop(['length_of_session_hrdf'], axis=1, inplace=True)
-        df.drop(['session_hour_play'],axis=1, inplace=True)
-        return df
-
     def preprocess_game_variety_data(self, row_limit=None):
         '''
         IN: Optional record limit
@@ -298,12 +213,14 @@ class ECPipeline(object):
 
         # Filtering out records with weeks of year into the future
         for df in df_chunks:
-            df = self.create_game_variety_features(df)
+            df = self.create_feats_game_variety(df)
             df = self.fill_gv_na_vals(df)
             df = self.drop_unused_gv_features(df)
             result_df = pd.concat((result_df, df), axis=0)
+            del df
 
         del df_chunks
+        gc.collect()
 
         result_df.drop_duplicates(keep='last', inplace=True)
         result_df.reset_index(drop=True, inplace=True)
@@ -316,28 +233,6 @@ class ECPipeline(object):
                                   file_name='intermed_gamevar_',
                                   H=False)
         return "LOGGING(FIX): GAME VAR DATA SET SUCCESSFULLY"
-
-    def create_game_variety_features(self, df):
-        p = df.groupby(['user_id'])['gameVariety'].apply(lambda x: x.tolist())
-        df = df.join(p, how='inner', on='user_id', lsuffix='_gv_id', rsuffix='_rightgv')
-        df.rename(columns={'gameVariety_rightgv': 'game_varieties'}, inplace=True)
-        del p
-
-        df['gv_max'] = df.game_varieties.apply(lambda x: np.max(x))
-        df['gv_avg'] = df.game_varieties.apply(lambda x: np.mean(x))
-        df['gv_std_dev'] = df.game_varieties.apply(lambda x: np.std(x))
-        return df
-
-    def fill_gv_na_vals(self, df):
-        # collapsing all weeks into single list
-        df.gv_max.fillna(0, inplace=True)
-        df.gv_avg.fillna(0, inplace=True)
-        df.gv_std_dev.fillna(0, inplace=True)
-        return df
-
-    def drop_unused_gv_features(self, df):
-        df.drop(['index', 'weekOfYear', 'lpi', 'gameVariety_gv_id', 'game_varieties'], axis=1, inplace=True)
-        return df
 
     def preprocess_subs_data(self, row_limit=None):
         '''
@@ -355,12 +250,15 @@ class ECPipeline(object):
         for df in df_chunks:
             df['date'] = pd.to_datetime(df['date'])
             df = self.dummify_subs_account_data(df)
-            df = self.create_churned_feature(df)
-            df = self.create_churned_count_feature(df)
+            df = self.create_feat_day_gap(df)
+            df = self.create_feat_churned(df)
+            df = self.create_feat_churned_count(df)
             df = self.fill_subs_na_vals(df)
             result_df = pd.concat((result_df, df), axis=0)
+            del df
 
         del df_chunks
+        gc.collect()
 
         result_df.drop(['churned_churn_counts', 'index', 'dup_row', 'state', 'date', 'day_gap'], axis=1, inplace=True)
         result_df.rename(columns={'churned_subs': 'churned'}, inplace=True)
@@ -374,6 +272,132 @@ class ECPipeline(object):
                                   H=False)
         return "LOGGING(FIX): SUB DATA SET SUCCESSFULLY"
 
+    def dummify_sex_data(self, df):
+        df_sex = pd.get_dummies(df.gender)
+        df = pd.concat([df, df_sex], axis=1)
+        df = df.rename(columns={'m': 'is_male'})
+        return df
+
+    def filter_user_by_age(self, df):
+        df = df[df['age'] < 117]
+        df = df[df['age'] > 4]
+        return df
+
+    def fill_gid_na_vals(self, df):
+        df.lpi.fillna(df.lpi.median(), inplace=True)
+        df.ffth_last_lpi_change.fillna(0, inplace=True)
+        df.frth_last_lpi_change.fillna(0, inplace=True)
+        df.thrd_last_lpi_change.fillna(0, inplace=True)
+        df.sec_last_lpi_change.fillna(0, inplace=True)
+        df.last_lpi_change.fillna(0, inplace=True)
+        return df
+
+    def create_feat_first_lpi(self, df):
+        #create first lpi record
+        a = df.groupby('user_id')['lpi'].first()
+        df = df.join(a, how='inner', on='user_id', lsuffix='_og', rsuffix='_flpi')
+        del a
+        df.rename(columns={'lpi_og':'lpi'},inplace=True)
+        gc.collect()
+        return df
+
+    def create_feat_ultimate_five_lpi_diffs_list(self, df):
+        df['delta_with_lw'] = df.groupby('user_id').lpi.diff()
+        w = df.groupby('user_id')['delta_with_lw'].apply(lambda x: x.tolist())
+        df = df.join(w, how='inner', on='user_id', lsuffix='_gvid', rsuffix='_wl')
+        del w
+        gc.collect()
+        df['last_5_deltas'] = df.delta_with_lw_wl.apply(lambda x: x[-5:])
+        return df
+
+    def create_feats_ultimate_five_lpis(self, df):
+        d = df.last_5_deltas.apply(lambda x: pd.Series(self._create_five_lpi_values(x)))
+        d.columns = ['ffth_last_lpi_change', 'frth_last_lpi_change', 'thrd_last_lpi_change', 'sec_last_lpi_change', 'last_lpi_change']
+        df = pd.concat([df, d], axis=1)
+        del d
+        gc.collect()
+        return df
+
+    def create_feats_lpi_history(self, df):
+        df = self.create_feat_first_lpi(df)
+        df = self.create_feat_ultimate_five_lpi_diffs_list(df)
+        df = self.create_feats_ultimate_five_lpis(df)
+        return df
+
+    def create_feat_avg_gameplay_length(self, df):
+        df['session_hour_play'] = df.hour.apply(lambda x: map(int, x.split(',')))
+        df['length_of_session'] = df.session_hour_play.apply(lambda x: abs(x[len(x)-1] - x[0]))
+        p = df.groupby('user_id')['length_of_session'].mean()
+        df = df.join(p, on='user_id', how='inner', lsuffix='_hrdf', rsuffix='_avgs')
+        del p
+        gc.collect()
+        return df
+
+    def create_feats_avg_std_gameplay_hour(self, df):
+        q = df.groupby('user_id')['hour'].apply(lambda x: map(int, (",".join(x)).split(',')))
+        df = df.join(q, on='user_id', how='inner', lsuffix='_gid', rsuffix='_ugdf')
+        df.rename(columns={'hour_ugdf': 'all_user_gaming_hours'}, inplace=True)
+        del q
+        gc.collect()
+        df['hour_avg'] = df.all_user_gaming_hours.apply(lambda x: np.mean(x))
+        df['hour_std'] = df.all_user_gaming_hours.apply(lambda x: np.std(x))
+        return df
+
+    def create_feats_gaming_hours(self, df):
+        '''
+        '''
+        df = self.create_feat_avg_gameplay_length(df)
+        df = self.create_feats_avg_std_gameplay_hour(df)
+        return df
+
+    def create_feat_tot_usr_games(self, df):
+        # Create column for all games played by userId
+        # across all sessions
+        r = df.groupby(['user_id'])['gameId'].apply(lambda x: ','.join(x))
+        df = df.join(r, on='user_id', how='inner', lsuffix='_gid', rsuffix='_ugpdf')
+        del r
+        gc.collect()
+        return df
+
+    def drop_unused_gid_features(self, df):
+        df.drop(['date'], axis=1, inplace=True)
+        df.drop(['index'], axis=1, inplace=True)
+        df.drop(['last_5_deltas'], axis=1, inplace=True)
+        df.drop(['delta_with_lw_wl'], axis=1, inplace=True)
+        df.drop(['delta_with_lw_gvid'], axis=1, inplace=True)
+        df.drop(['all_user_gaming_hours'], axis=1, inplace=True)
+        df.drop(['all_user_games_plyd'], axis=1, inplace=True)
+        df.drop(['session_gameIds'], axis=1, inplace=True)
+        df.drop(['session_hours'], axis=1, inplace=True)
+        df.drop(['lpi'], axis=1, inplace=True)
+        df.drop(['length_of_session_hrdf'], axis=1, inplace=True)
+        df.drop(['session_hour_play'],axis=1, inplace=True)
+        import ipdb; ipdb.set_trace()
+        gc.collect()
+        return df
+
+    def create_feats_game_variety(self, df):
+        p = df.groupby(['user_id'])['gameVariety'].apply(lambda x: x.tolist())
+        df = df.join(p, how='inner', on='user_id', lsuffix='_gv_id', rsuffix='_rightgv')
+        df.rename(columns={'gameVariety_rightgv': 'game_varieties'}, inplace=True)
+        del p
+        gc.collect()
+
+        df['gv_max'] = df.game_varieties.apply(lambda x: np.max(x))
+        df['gv_avg'] = df.game_varieties.apply(lambda x: np.mean(x))
+        df['gv_std_dev'] = df.game_varieties.apply(lambda x: np.std(x))
+        return df
+
+    def fill_gv_na_vals(self, df):
+        # collapsing all weeks into single list
+        df.gv_max.fillna(0, inplace=True)
+        df.gv_avg.fillna(0, inplace=True)
+        df.gv_std_dev.fillna(0, inplace=True)
+        return df
+
+    def drop_unused_gv_features(self, df):
+        df.drop(['index', 'weekOfYear', 'lpi', 'gameVariety_gv_id', 'game_varieties'], axis=1, inplace=True)
+        return df
         # dummifying subcription data
 
     def dummify_subs_account_data(self, df):
@@ -382,8 +406,19 @@ class ECPipeline(object):
         df.rename(columns={'subs': 'is_subs_acct'})
         return df
 
-    # Calculate the difference between every login by user from days of last login
-    def create_churned_feature(self, df):
+    def create_feat_day_gap(self,df):
+        df['day_gap'] = df.groupby('user_id').date.diff()
+        df['day_gap'] = df.day_gap.dt.days
+        return df
+
+    def drop_dup_churned(self, df):
+        # identifying duplicate rows, because need 1 row for every user_id
+        import ipdb; ipdb.set_trace()
+        df['dup_row'] = df.sort_values(by=['user_id', 'churned']).duplicated(subset='user_id', keep='last')
+        df = df[df['dup_row'] == False]
+        return df
+
+    def create_feat_churned(self, df):
         df['day_gap'] = df.groupby('user_id').date.diff()
         df['day_gap'] = df.day_gap.dt.days
         # creating churned user records
@@ -398,11 +433,12 @@ class ECPipeline(object):
         return df
 
     # adding count of how many times user has churned
-    def create_churned_count_feature(self, df):
-        churn_counts_sorted = df.groupby('user_id').churned.sum().sort_values()
-        df = df.join(churn_counts_sorted, how='inner', on='user_id', lsuffix='_subs', rsuffix='_churn_counts')
+    def create_feat_churned_count(self, df):
+        c = df.groupby('user_id').churned.sum().sort_values()
+        df = df.join(c, how='inner', on='user_id', lsuffix='_subs', rsuffix='_churn_counts')
         df['prior_churn_count'] = df['churned_churn_counts'] - df['churned_subs']
-        del churn_counts_sorted
+        del c
+        gc.collect()
         return df
 
     def fill_subs_na_vals(self, df):
@@ -451,7 +487,7 @@ class ECPipeline(object):
         OUT:    N/A
         '''
         print "LOGGING(FIX): PREPROCESSING DATA"
-        self.preprocess_demo_df(row_limit=row_limit)
+        self.preprocess_demo_data(row_limit=row_limit)
         self.preprocess_game_id_data(row_limit=row_limit)
         self.preprocess_game_variety_data(row_limit=row_limit)
         self.preprocess_subs_data(row_limit=row_limit)
