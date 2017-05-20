@@ -92,7 +92,7 @@ class EngagementModel(object):
         self.set_optimal_model(models[0])
         return "LOGGING (FIX): OPTIMAL MODEL SET, SUCCESSFULLY"
 
-    def logistic_regression_report(X_train,y_train,X_test,y_test):
+    def logistic_regression_report(self, X_train, y_train, X_test, y_test):
         model = LogisticRegression()
         model.fit(X_train, y_train)
         y_predict = model.predict(X_test)
@@ -106,7 +106,7 @@ class EngagementModel(object):
 if __name__ == '__main__':
     #Instantiate the data pipeline and preprocess_all_datasets
     #Option to limit sample size you're running on
-    pipeline = ECPipeline()
+    pipeline = ECPipeline(write_intermeds=True)
     pipeline.set_s3_bucket(connect_bucket())
     pipeline.set_aws_keys(get_keys_for_bucket())
     pipeline.preprocess_all_datasets()

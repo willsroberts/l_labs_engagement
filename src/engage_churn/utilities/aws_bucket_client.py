@@ -3,13 +3,15 @@ import yaml
 import boto
 import pandas as pd
 import os
-
+from datetime import datetime
 
 rel_path = os.path.expanduser('~')
+
 
 def get_keys_for_bucket():
     aws_bucket_keys = yaml.load(open(rel_path + '/.aws/aws_buckets.yaml'))
     return aws_bucket_keys
+
 
 def display_all_keys(bucket=None, H=False):
     '''
@@ -20,6 +22,7 @@ def display_all_keys(bucket=None, H=False):
     if H:
         print display_all_keys.__doc__
     return bucket.get_all_keys()
+
 
 def load_data_by_key(key=None, bucket=None, bucket_keys=None, row_limit=None, H=False):
     '''
@@ -37,30 +40,53 @@ def load_data_by_key(key=None, bucket=None, bucket_keys=None, row_limit=None, H=
         standardize_user_id(df)
         if row_limit:
             df = df.head(row_limit)
-        dfs = build_chunks(df,10)
+        dfs = build_chunks(df, 10)
     else:
         print "ERROR <= Update Logging => NULL, KEY"
         print load_data_by_key.__doc__
     return dfs
 
+
+def write_intermed_data_to_s3(bucket=None, bucket_keys=None, df=None, file_name=None, H=False):
+    '''
+    IN:
+    OUT: RETURN
+    '''
+    if H:
+        print write_intermed_data_to_s3.__doc__
+    fil = file_name + str(datetime.now())
+    df.to_csv(fil, sep='\t')
+    try:
+        k = bucket.new_key(file_name)
+        k.set_contents_from_filename(fil)
+    except:
+        print Exception.message
+    return "LOGGING(FIX): WRITTEN TO S3"
+
+
 def standardize_user_id(df):
+    '''
+    IN: Dataframe
+    OUT: column renamed to convention
+    '''
     if "userId" in df.columns:
-        df.rename(columns={'userId':'user_id'},inplace=True)
+        df.rename(columns={'userId': 'user_id'}, inplace=True)
         response = "STANDARDIZED"
     response = "ALREADY STANDARD"
     return "USER ID " + response
 
+
 def build_chunks(df, mod):
 
-    ix_start = df.shape[0]/mod
+    ix_start = df.shape[0] / mod
     ixs = [0]
     dfs = []
-    for ix in xrange(mod-1):
-        ixs.append(ix_start*(ix+1))
-    ixs.append(df.shape[0]-1)
+    for ix in xrange(mod - 1):
+        ixs.append(ix_start * (ix + 1))
+    ixs.append(df.shape[0] - 1)
 
     for i, ix in enumerate(ixs):
-        if ix < df.shape[0]-1 and ix > 0:
+        if ix < df.shape[0] - 1 and ix > 0:
             i_usr = df.iloc[ix].user_id
             j_usr = df.iloc[ix].user_id
 
@@ -70,9 +96,9 @@ def build_chunks(df, mod):
                 ixs[i] = ix
 
     bounds = []
-    for i,c in enumerate(ixs):
-        if i< len(ixs) - 1:
-            bounds.append((c,ixs[i+1]))
+    for i, c in enumerate(ixs):
+        if i < len(ixs) - 1:
+            bounds.append((c, ixs[i + 1]))
 
     for tup in bounds:
         dfs.append(df.iloc[tup[0]:tup[1]])
@@ -91,7 +117,7 @@ def connect_bucket(H=False):
     if H:
         print connect_bucket.__doc__
     aws = yaml.load(open(rel_path + '/.aws/aws.yaml'))
-    conn = boto.connect_s3(aws_access_key_id=aws['key1'],aws_secret_access_key=aws['key2'])
+    conn = boto.connect_s3(aws_access_key_id=aws['key1'], aws_secret_access_key=aws['key2'])
     bucket = conn.get_bucket(aws['lumos_bucket'])
     return bucket
 
@@ -101,4 +127,4 @@ if __name__ == "__main__":
     '''
     aws_bucket_keys = get_keys_for_bucket()
     bucket = connect_bucket()
-    load_data_by_key(key='game_id_key',bucket=bucket, bucket_keys=aws_bucket_keys,H=True)
+    load_data_by_key(key='game_id_key', bucket=bucket, bucket_keys=aws_bucket_keys, H=True)
