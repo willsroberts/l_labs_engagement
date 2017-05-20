@@ -372,7 +372,6 @@ class ECPipeline(object):
         df.drop(['lpi'], axis=1, inplace=True)
         df.drop(['length_of_session_hrdf'], axis=1, inplace=True)
         df.drop(['session_hour_play'],axis=1, inplace=True)
-        import ipdb; ipdb.set_trace()
         gc.collect()
         return df
 
@@ -413,7 +412,6 @@ class ECPipeline(object):
 
     def drop_dup_churned(self, df):
         # identifying duplicate rows, because need 1 row for every user_id
-        import ipdb; ipdb.set_trace()
         df['dup_row'] = df.sort_values(by=['user_id', 'churned']).duplicated(subset='user_id', keep='last')
         df = df[df['dup_row'] == False]
         return df
@@ -473,7 +471,7 @@ class ECPipeline(object):
         if self.get_write_intermeds():
             write_intermed_data_to_s3(bucket=self.get_s3_bucket(),
                                   bucket_keys=self.get_aws_keys(),
-                                  df=result_df,
+                                  df=d_mat,
                                   file_name='final_matrix_',
                                   H=False)
 
