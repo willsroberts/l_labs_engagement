@@ -93,12 +93,12 @@ class EngagementModel(object):
         return "LOGGING (FIX): OPTIMAL MODEL SET, SUCCESSFULLY"
 
     def logistic_regression_report(self, X_train, y_train, X_test, y_test):
-        model = LogisticRegression()
-        model.fit(X_train, y_train)
-        y_predict = model.predict(X_test)
+        m = LogisticRegression()
+        m.fit(X_train, y_train)
+        y_predict = m.predict(X_test)
 
         print model.coef_
-        print "Model Score: {} , Precision Score: {}, Recall Score: {}".format(model.score(X_test, y_test),
+        print "Model Score: {} , Precision Score: {}, Recall Score: {}".format(m.score(X_test, y_test),
                precision_score(y_test, y_predict),
                recall_score(y_test, y_predict))
 

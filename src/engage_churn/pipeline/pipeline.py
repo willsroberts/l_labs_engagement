@@ -28,7 +28,7 @@ class ECPipeline(object):
         self.gv_data = None
         self.gid_data = None
         self.subs_data = None
-        self.churn_threshold = 30
+        self.churn_threshold = 15
         self.write_intermeds = write_intermeds
 
     def get_s3_bucket(self):
@@ -122,6 +122,8 @@ class ECPipeline(object):
             df = self.filter_user_by_age(df)
             result_df = pd.concat((result_df, df), axis=0)
 
+        del df_chunks
+
         # Dropping columns not needed
         result_df.drop(['f', 'gender', 'language', 'index'], axis=1, inplace=True)
         #
@@ -179,6 +181,8 @@ class ECPipeline(object):
             df = self.fill_gid_na_vals(df)
             result_df = pd.concat((result_df, df), axis=0)
 
+        del df_chunk
+
         result_df.rename(columns={'hour_gid': 'session_hours',
                                   'gameId_gid': 'session_gameIds',
                                   'hour_ugdf': 'all_user_gaming_hours',
@@ -211,22 +215,22 @@ class ECPipeline(object):
 
     def create_lpi_history_features(self, df):
         #create first lpi record
-
         a = df.groupby('user_id')['lpi'].first()
         df = df.join(a, how='inner', on='user_id', lsuffix='_og', rsuffix='_flpi')
+        del a
         df.rename(columns={'lpi_og':'lpi'},inplace=True)
         # Create Last 5 Week Change columns
         df['delta_with_lw'] = df.groupby('user_id').lpi.diff()
         week_deltas = df.groupby('user_id')['delta_with_lw'].apply(lambda x: x.tolist())
         df = df.join(week_deltas, how='inner', on='user_id', lsuffix='_gvid', rsuffix='_wl')
+        del week_deltas
         df['last_5_deltas'] = df.delta_with_lw_wl.apply(lambda x: x[-5:])
 
         # Last 5 Deltas
         delta_df = df.last_5_deltas.apply(lambda x: pd.Series(self._create_five_lpi_values(x)))
         delta_df.columns = ['ffth_last_lpi_change', 'frth_last_lpi_change', 'thrd_last_lpi_change', 'sec_last_lpi_change', 'last_lpi_change']
-
-
         df = pd.concat([df, delta_df], axis=1)
+        del delta_df
         return df
 
     def create_gaming_hours_features(self, df):
@@ -237,15 +241,18 @@ class ECPipeline(object):
         df['length_of_session'] = df.session_hour_play.apply(lambda x: abs(x[len(x)-1] - x[0]))
         p = df.groupby('user_id')['length_of_session'].mean()
         df = df.join(p, on='user_id', how='inner', lsuffix='_hrdf', rsuffix='_avgs')
+        del p
 
         # Collect all user gaming hours
         q = df.groupby(['user_id'])['hour'].apply(lambda x: ','.join(x))
         df = df.join(q, on='user_id', how='inner', lsuffix='_gid', rsuffix='_ugdf')
         df.rename(columns={'hour_ugdf': 'all_user_gaming_hours'}, inplace=True)
+        del q
         # Convert strings of hours to integers
-        list_of_ints = df.all_user_gaming_hours.apply(lambda x: map(int, x.split(',')))
-        list_of_ints.name = 'game_hours_ints'
-        df = pd.concat([df, list_of_ints], axis=1)
+        rs = df.all_user_gaming_hours.apply(lambda x: map(int, x.split(',')))
+        r.name = 'game_hours_ints'
+        df = pd.concat([df, r], axis=1)
+        del r
 
         df['hour_avg'] = df.game_hours_ints.apply(lambda x: np.mean(x))
         df['hour_std'] = df.game_hours_ints.apply(lambda x: np.std(x))
@@ -256,6 +263,7 @@ class ECPipeline(object):
         # across all sessions
         r = df.groupby(['user_id'])['gameId'].apply(lambda x: ','.join(x))
         df = df.join(r, on='user_id', how='inner', lsuffix='_gid', rsuffix='_ugpdf')
+        del r
         return df
 
     def drop_unused_gid_features(self, df):
@@ -295,6 +303,8 @@ class ECPipeline(object):
             df = self.drop_unused_gv_features(df)
             result_df = pd.concat((result_df, df), axis=0)
 
+        del df_chunks
+
         result_df.drop_duplicates(keep='last', inplace=True)
         result_df.reset_index(drop=True, inplace=True)
 
@@ -308,9 +318,10 @@ class ECPipeline(object):
         return "LOGGING(FIX): GAME VAR DATA SET SUCCESSFULLY"
 
     def create_game_variety_features(self, df):
-        gv_bw = df.groupby(['user_id'])['gameVariety'].apply(lambda x: x.tolist())
-        df = df.join(gv_bw, how='inner', on='user_id', lsuffix='_gv_id', rsuffix='_rightgv')
+        p = df.groupby(['user_id'])['gameVariety'].apply(lambda x: x.tolist())
+        df = df.join(p, how='inner', on='user_id', lsuffix='_gv_id', rsuffix='_rightgv')
         df.rename(columns={'gameVariety_rightgv': 'game_varieties'}, inplace=True)
+        del p
 
         df['gv_max'] = df.game_varieties.apply(lambda x: np.max(x))
         df['gv_avg'] = df.game_varieties.apply(lambda x: np.mean(x))
@@ -349,6 +360,8 @@ class ECPipeline(object):
             df = self.fill_subs_na_vals(df)
             result_df = pd.concat((result_df, df), axis=0)
 
+        del df_chunks
+
         result_df.drop(['churned_churn_counts', 'index', 'dup_row', 'state', 'date', 'day_gap'], axis=1, inplace=True)
         result_df.rename(columns={'churned_subs': 'churned'}, inplace=True)
         result_df.reset_index(drop=True, inplace=True)
@@ -375,8 +388,9 @@ class ECPipeline(object):
         df['day_gap'] = df.day_gap.dt.days
         # creating churned user records
         df['churned'] = df['day_gap'].apply(lambda x: 1 if x > self.get_churn_threshold() else 0)
-        churn_df = df.groupby('user_id')['churned'].max()
-        df.join(churn_df, how="inner", on='user_id', lsuffix='_sub_df', rsuffix='_ch_df')
+        c = df.groupby('user_id')['churned'].max()
+        df.join(c, how="inner", on='user_id', lsuffix='_sub_df', rsuffix='_ch_df')
+        del c
 
         # identifying duplicate rows, because need 1 row for every user_id
         df['dup_row'] = df.sort_values(by=['user_id', 'churned']).duplicated(subset='user_id', keep='last')
@@ -388,6 +402,7 @@ class ECPipeline(object):
         churn_counts_sorted = df.groupby('user_id').churned.sum().sort_values()
         df = df.join(churn_counts_sorted, how='inner', on='user_id', lsuffix='_subs', rsuffix='_churn_counts')
         df['prior_churn_count'] = df['churned_churn_counts'] - df['churned_subs']
+        del churn_counts_sorted
         return df
 
     def fill_subs_na_vals(self, df):
@@ -417,7 +432,7 @@ class ECPipeline(object):
         d_mat = d_mat.join(self.get_demo_data(), how='inner', on='user_id', lsuffix='_subs_gv_tm', rsuffix='_demo_df')
         d_mat.reset_index(drop=True, inplace=True)
         d_mat.drop(['user_id_demo_df', 'user_id_gvid_df', 'user_id_subs_df', 'user_id_tm_mat_df', 'user_id_subs_gv_tm'], axis=1, inplace=True)
-        print "Uniq Users FINAL : {}, Final Matrix Columns: \n {}".format(pd.Series.nunique(d_mat.user_id), d_mat.columns)
+        print "Uniq Users FINAL : {}, Final Matrix Columns: \n  {}".format(pd.Series.nunique(d_mat.user_id), d_mat.columns)
 
         if self.get_write_intermeds():
             write_intermed_data_to_s3(bucket=self.get_s3_bucket(),
