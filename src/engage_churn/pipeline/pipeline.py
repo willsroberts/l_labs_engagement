@@ -1,10 +1,11 @@
 import pandas as pd
 import numpy as np
-from datetime import timedelta, date
-# from engage_churn.utilities import aws_bucket_client
 import os, gc
-# import sys
+import logging
 import pprint
+from datetime import timedelta, date
+from time import sleep
+# from utilties.logging import setup_logging
 from utilities.aws_bucket_client import (
     display_all_keys,
     get_keys_for_bucket,
@@ -12,7 +13,7 @@ from utilities.aws_bucket_client import (
     connect_bucket,
     write_intermed_data_to_s3
 )
-from time import sleep
+
 
 # rel_path = os.getcwd()
 # sys.path.append(rel_path)
@@ -99,7 +100,7 @@ class ECPipeline(object):
         3) Function sets on pipeline object the cleaned demographic data
         OUT: N/A
         '''
-        print "LOGGING(FIX): DEMO DATA SET PREPROCESSING"
+        print "LOGGING(FIX):DEMO DATA SET PREPROCESSING"
 
         #
         #   RETRIEVE DATA
@@ -465,8 +466,9 @@ class ECPipeline(object):
         print "Uniq Users BEF JOIN 3 : mat:{} , demo:{}, \n columns: {}".format(pd.Series.nunique(d_mat.user_id), pd.Series.nunique(self.get_demo_data().user_id), d_mat.columns)
         d_mat = d_mat.join(self.get_demo_data(), how='inner', on='user_id', lsuffix='_subs_gv_tm', rsuffix='_demo_df')
         d_mat.reset_index(drop=True, inplace=True)
-        d_mat.drop(['user_id_demo_df', 'user_id_gvid_df', 'user_id_subs_df', 'user_id_tm_mat_df', 'user_id_subs_gv_tm'], axis=1, inplace=True)
-        print "Uniq Users FINAL : {}, Final Matrix Columns: \n  {}".format(pd.Series.nunique(d_mat.user_id), d_mat.columns)
+        print "Uniq Users FINAL : {}".format(pd.Series.nunique(d_mat.user_id))
+        d_mat.drop(['user_id_demo_df', 'user_id_gvid_df', 'user_id_subs_df', 'user_id_tm_mat_df', 'user_id_subs_gv_tm', 'user_id', 'user_id_gmid_df'], axis=1, inplace=True)
+        print "Final Matrix Columns: \n  {}".format(d_mat.columns)
 
         if self.get_write_intermeds():
             write_intermed_data_to_s3(bucket=self.get_s3_bucket(),

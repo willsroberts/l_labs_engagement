@@ -11,7 +11,7 @@ def grid_search_dict():
         'learning_rate':[1, .5, .2, 0.05],
         'max_depth':[2,4,8,10],
         'max_features':['sqrt', 'log2'],
-        'n_estimators':[50,75, 100,200,300,500]}
+        'n_estimators':[50,75,100,200]}
 
     ada_boost = {
         'learning_rate':[1, 0.5, .2, .05],
@@ -26,7 +26,9 @@ def grid_search_dict():
         }
 
     return [
-        (GradientBoostingClassifier(), gd_boost),
-        (AdaBoostClassifier(DecisionTreeClassifier()), ada_boost),
-        (RandomForestClassifier(), random_forest_grid)
+        (GradientBoostingClassifier(), gd_boost)
+        #Optional Alternative Forests/Boost
+        #,
+        #(AdaBoostClassifier(DecisionTreeClassifier()), ada_boost),
+        #(RandomForestClassifier(), random_forest_grid)
     ]
