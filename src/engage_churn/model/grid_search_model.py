@@ -28,7 +28,7 @@ def grid_search_dict():
     return [
         (GradientBoostingClassifier(), gd_boost)
         #Optional Alternative Forests/Boost
-        #,
-        #(AdaBoostClassifier(DecisionTreeClassifier()), ada_boost),
-        #(RandomForestClassifier(), random_forest_grid)
+        ,
+        (AdaBoostClassifier(DecisionTreeClassifier()), ada_boost),
+        (RandomForestClassifier(), random_forest_grid)
     ]
