@@ -16,8 +16,6 @@ from sklearn.model_selection import GridSearchCV
 from timeit import default_timer as timer
 from utilities.aws_bucket_client import display_all_keys, get_keys_for_bucket, load_data_by_key, connect_bucket
 import grid_search_model
-
-import matplotlib.pyplot as plt
 from sklearn.metrics import silhouette_score
 from itertools import combinations, izip
 import random
