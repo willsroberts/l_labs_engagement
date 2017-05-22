@@ -42,7 +42,7 @@ def load_data_by_key(key=None, bucket=None, bucket_keys=None, row_limit=None, H=
             df = df.head(row_limit)
         dfs = build_chunks(df, 10)
     else:
-        print "ERROR <= Update Logging => NULL, KEY"
+        logging.error('AWS_CREDS: NULL, KEY')
         print load_data_by_key.__doc__
     return dfs
 
@@ -60,8 +60,9 @@ def write_intermed_data_to_s3(bucket=None, bucket_keys=None, df=None, file_name=
         k = bucket.new_key(file_name)
         k.set_contents_from_filename(fil)
     except:
-        print Exception.message
-    return "LOGGING(FIX): WRITTEN TO S3"
+        logging.error('AWS_CREDS: S3 WRITE: ' + Exception.message)
+    logging.info('AWS_CREDS: INTERMEDIATE - WRITTEN TO S3')
+    return None
 
 
 def standardize_user_id(df):
