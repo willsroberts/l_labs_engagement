@@ -39,7 +39,7 @@ ptyprocess==0.5.1
 pyasn1==0.1.7
 pycrypto==2.6.1
 pycurl==7.19.0
-Pygments==2.2.0
+Pygments==2.7.4
 pygpgme==0.3
 pyliblzma==0.5.3
 pyparsing==2.2.0
