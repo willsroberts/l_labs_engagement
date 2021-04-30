@@ -50,7 +50,7 @@ pytz==2017.2
 pyxattr==0.5.0
 PyYAML==3.10
 requests==1.2.3
-rsa==3.4.1
+rsa==4.7
 scandir==1.5
 simplegeneric==0.8.1
 simplejson==3.6.5
