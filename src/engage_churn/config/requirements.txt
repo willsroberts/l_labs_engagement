@@ -1,7 +1,7 @@
 appdirs==1.4.3
 aws-cfn-bootstrap==1.4
 awscli==1.11.29
-Babel==0.9.4
+Babel==2.9.1
 backports.shutil-get-terminal-size==1.0.0
 backports.ssl-match-hostname==3.4.0.2
 boto==2.42.0
